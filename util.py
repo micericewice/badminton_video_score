@@ -7,41 +7,68 @@ from pprint import pprint
 BG_W = 929
 BG_H = 251
 BG_OFFSET_FACTOR = 0.015 # 1.5% off original video height as offset top,left for the BG
-PNAME_W = 750
+
+PNAME_W = 650
 PNAME_H = 90
-PNAME_SIZE = PNAME_H - 30
+PNAME_SIZE = PNAME_H - 30 # font size
 PNAME_OFFSET_X = 30
-PSCORE_W = 140
-PSCORE_H = 90
-PSCORE_SIZE = PSCORE_H - 10
-PSCORE_OFFSET_X = 782
-PY_OFFSET_1 = 30
-PY_OFFSET_2 = 140
-BG_EXPECTED_SCALE = 0.1 # 10% if original video height
+PNAME_OFFSET_Y_1 = 30
+PNAME_OFFSET_Y_2 = PNAME_OFFSET_Y_1 + 112
+
+SHUTTLE_W = 100 # according to bg.png
+SHUTTLE_H = 100 # according to bg.png
+SHUTTLE_SIZE = SHUTTLE_H - 40 # font size
+SHUTTLE_OFFSET_X = PNAME_OFFSET_X + PNAME_W
+SHUTTLE_OFFSET_Y_1 = 24
+SHUTTLE_OFFSET_Y_2 = SHUTTLE_OFFSET_Y_1 + 112
+
+PSCORE_W = 143 # according to bg.png
+PSCORE_H = 90 # according to bg.png
+PSCORE_SIZE = PSCORE_H - 10 # font size
+PSCORE_OFFSET_X = SHUTTLE_OFFSET_X + SHUTTLE_W + 2
+PSCORE_OFFSET_Y_1 = 30
+PSCORE_OFFSET_Y_2 = PSCORE_OFFSET_Y_1 + 112
+
 
 def parse_csv(csv_file):
    ret = {}
    with open(csv_file, 'r', encoding='utf-8') as file:
       reader = csv.reader(file, delimiter=',')
 
+      row_count = 0
       row_header = next(reader)
+      row_count += 1
       ret['pname1'] = row_header[2]
       ret['pname2'] = row_header[3]
 
       row_start = next(reader)
+      row_count += 1
       start_sec = int(row_start[0]) * 60 + int(row_start[1])
       ret['start_sec'] = start_sec
 
       ret['pscore1'] = []
       ret['pscore2'] = []
+      ret['serve_indicator'] = []
       pre_score_sec_p1 = start_sec
       pre_score_sec_p2 = start_sec
+      pre_serve_indication_sec = start_sec
       score_p1 = int(row_start[2])
       score_p2 = int(row_start[3])
+      last_scoring_player = "p1"
 
       # increments of scores
       for row in reader:
+         row_count += 1
          timestamp_sec = int(row[0]) * 60 + int(row[1])
+         if timestamp_sec<pre_score_sec_p1 or timestamp_sec<pre_score_sec_p2 or timestamp_sec<pre_serve_indication_sec:
+            raise Exception(f"timestamp is invalid at row {row_count}")
+         ret['serve_indicator'] += [{
+            'player' : last_scoring_player,
+            'start' : pre_serve_indication_sec,
+            'duration' : (timestamp_sec - pre_serve_indication_sec),
+         }]
+         pre_serve_indication_sec = timestamp_sec
+
          if row[2].strip().startswith(("x","X")): # p1 scored
             ret['pscore1'] += [{
                'start' : pre_score_sec_p1,
@@ -50,6 +77,7 @@ def parse_csv(csv_file):
             }]
             score_p1 += 1
             pre_score_sec_p1 = timestamp_sec
+            last_scoring_player = "p1"
          elif row[3].strip().startswith(("x","X")): # p2 scored
             ret['pscore2'] += [{
                'start' : pre_score_sec_p2,
@@ -58,6 +86,7 @@ def parse_csv(csv_file):
             }]
             score_p2 += 1
             pre_score_sec_p2 = timestamp_sec
+            last_scoring_player = "p2"
          else: # no on scored, this is end of the match
             ret['pscore1'] += [{
                'start' : pre_score_sec_p1,
@@ -70,6 +99,7 @@ def parse_csv(csv_file):
                'duration' : (timestamp_sec - pre_score_sec_p2),
             }]
             ret['end_sec'] = timestamp_sec
+
 
    # pprint(ret, sort_dicts=False)
    return ret
@@ -117,14 +147,12 @@ def create_clips_pname(name, font, video_w, video_h, scale, pid):
       vertical_align='center',
       duration=None,
    )
-   offset_y = PY_OFFSET_1 if pid==1 else PY_OFFSET_2
+   offset_y = PNAME_OFFSET_Y_1 if pid==1 else PNAME_OFFSET_Y_2
    clip_pname = clip_pname.resized(height=int(PNAME_H*scale))
-   clip_pname = clip_pname.with_position(
-      (
-         PNAME_OFFSET_X*scale + video_h*BG_OFFSET_FACTOR,
-         offset_y*scale + video_h*BG_OFFSET_FACTOR
-      )
-   )
+   clip_pname = clip_pname.with_position((
+      PNAME_OFFSET_X*scale + video_h*BG_OFFSET_FACTOR,
+      offset_y*scale + video_h*BG_OFFSET_FACTOR
+   ))
    ret.append(clip_pname)
    return ret
 
@@ -146,8 +174,8 @@ def create_clips_pscores(data, font, video_w, video_h, scale, pid):
          vertical_align='center',
          duration=item['duration'],
       )
-      offset_y = PY_OFFSET_1 if pid==1 else PY_OFFSET_2
       clip_score = clip_score.resized(height=int(PSCORE_H*scale))
+      offset_y = PSCORE_OFFSET_Y_1 if pid==1 else PSCORE_OFFSET_Y_2
       clip_score = clip_score.with_position((
          PSCORE_OFFSET_X*scale + video_h*BG_OFFSET_FACTOR,
          offset_y*scale + video_h*BG_OFFSET_FACTOR
@@ -157,8 +185,36 @@ def create_clips_pscores(data, font, video_w, video_h, scale, pid):
    return ret
 
 
+# create ImageClip of score board with time = final video time
+def create_clips_serve(data, font_icon, video_w, video_h, scale):
+   ret = []
+   for item in data:
+      clip_serve = TextClip(
+         font=font_icon,
+         text='\uf04b',
+         method='label',
+         size=(SHUTTLE_W, SHUTTLE_H),
+         font_size=SHUTTLE_SIZE,
+         color='#995238',
+         text_align='center',
+         horizontal_align='right',
+         vertical_align='center',
+         duration=item['duration'],
+         margin=(10,10),
+      )
+      clip_serve = clip_serve.resized(height=int(SHUTTLE_H*scale))
+      offset_y = SHUTTLE_OFFSET_Y_1 if item['player']=='p1' else SHUTTLE_OFFSET_Y_2
+      clip_serve = clip_serve.with_position((
+         SHUTTLE_OFFSET_X*scale + video_h*BG_OFFSET_FACTOR,
+         offset_y*scale + video_h*BG_OFFSET_FACTOR
+      ))
+      clip_serve = clip_serve.with_start(item['start'])
+      ret.append(clip_serve)
+   return ret
+
+
 # Overlay all clips together
-def create_clip_overlay_all(if_vid, scores_data, bg_path, font, out_vid):
+def create_clip_overlay_all(if_vid, scores_data, bg_path, font, font_icon, out_vid):
    video_w,video_h = get_org_video_size(if_vid)
    scale = video_h*0.1 / BG_H
    all_clips = []
@@ -168,6 +224,7 @@ def create_clip_overlay_all(if_vid, scores_data, bg_path, font, out_vid):
    all_clips += create_clips_pname(scores_data['pname2'], font, video_w, video_h, scale, pid=2)
    all_clips += create_clips_pscores(scores_data['pscore1'], font, video_w, video_h, scale, pid=1)
    all_clips += create_clips_pscores(scores_data['pscore2'], font, video_w, video_h, scale, pid=2)
+   all_clips += create_clips_serve(scores_data['serve_indicator'], font_icon, video_w, video_h, scale)
    final_clip = CompositeVideoClip(all_clips).subclipped(scores_data['start_sec'],scores_data['end_sec'])
    return final_clip
 

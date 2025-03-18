@@ -10,6 +10,8 @@ overlay the scoreboard with scores updated during the video time
 Example: ./in/video.mov
 
 ## update ./in/score.csv
+(P1_name is name of player who serves first)
+
 | Min | Sec | P1_name | P2_name ||
 | --- | --- | :---: | :---: ||
 |0|5|0|0| <i>0m5s the game starts, 0-0 is starting score</i> |

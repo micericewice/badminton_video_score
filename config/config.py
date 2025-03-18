@@ -5,4 +5,5 @@ CONFIGs = {
    'png_dir' : 'assets/PNG',
    'bg' : 'assets/PNG/bg1.png',
    'font' : 'assets/fonts/roboto_regular.ttf',
+   'font_icon' : 'assets/fonts/FontAwesome6FreeSolid900.otf',
 }
