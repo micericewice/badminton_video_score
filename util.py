@@ -60,7 +60,7 @@ def parse_csv(csv_file):
       for row in reader:
          row_count += 1
          timestamp_sec = int(row[0]) * 60 + int(row[1])
-         if timestamp_sec<pre_score_sec_p1 or timestamp_sec<pre_score_sec_p2 or timestamp_sec<pre_serve_indication_sec:
+         if timestamp_sec<=pre_score_sec_p1 or timestamp_sec<=pre_score_sec_p2 or timestamp_sec<=pre_serve_indication_sec:
             raise Exception(f"timestamp is invalid at row {row_count}")
          ret['serve_indicator'] += [{
             'player' : last_scoring_player,
