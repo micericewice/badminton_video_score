@@ -9,7 +9,7 @@ overlay the scoreboard with scores updated during the video time
 ## Put input video to ./in/ folder
 Example: ./in/video.mov
 
-## update ./in/score.csv
+## update score data (eg: ./in/score.csv or ./in/score.xlsx)
 (P1_name is name of player who serves first)
 
 | Min | Sec | P1_name | P2_name ||
