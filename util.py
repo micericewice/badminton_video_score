@@ -331,7 +331,7 @@ def create_clips_serve(data, font_icon, video_w, video_h, scale):
 # Overlay all clips together
 def create_clip_overlay_all(if_vid, scores_data, bg_path, font, font_icon, out_vid):
    video_w,video_h = get_org_video_size(if_vid)
-   scale = video_h*0.1 / BG_H
+   scale = min(video_w,video_h)*0.1 / BG_H
    all_clips = []
    all_clips += create_clips_org_video(if_vid)
    all_clips += create_clips_bg(bg_path, video_w, video_h, scale)
